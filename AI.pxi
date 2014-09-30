@@ -20,12 +20,10 @@ cdef class AI:
     #cdef shortmemory
     cdef int move_nr
     cdef int nr_wins
+    cpdef int nr_losses
     cdef int generation
-    def __init__(self):
-        self.nr_wins = 0
-        self.generation = 0
-        cdef int nr_features= 20
-        piecesl = [WHITE_PAWN,
+    cdef int feature_density
+    piecesl = [WHITE_PAWN,
            WHITE_KNIGHT,
            WHITE_BISHOP,
            WHITE_ROOK,
@@ -38,6 +36,13 @@ cdef class AI:
            BLACK_QUEEN,
            BLACK_KING,
            4096]
+    def __init__(self):
+        self.nr_wins = 0
+        self.nr_losses = 0
+        self.generation = 0
+        self.feature_density = 4
+        cdef int nr_features= 10
+        #self.piecesl = 
         
         cdef np.ndarray[np.uint16_t, ndim=1, mode="c"] piecess =np.array(range(4096,8191+1), dtype=np.uint16)
         cdef np.ndarray[np.int32_t, ndim=1, mode="c"] m = np.zeros((nr_features), dtype=np.int32)
@@ -95,19 +100,31 @@ cdef class AI:
     # EVERYTHING YOU DO IS WRONG    
     cpdef punish(self):
         self.memory.weaken_axons()
-       
+        self.nr_losses += 1
         
     cpdef reward(self):
         self.nr_wins += 1
         self.memory.strengthen_axons()
-    
+    cpdef get_score(self):
+        return self.nr_wins - self.nr_losses
+        
     cpdef mutate(self, AI ai):
         self.features = np.copy(ai.features)
-        self.features[random.randint(0,self.nr_features-1)][random.randint(0,8-1)][random.randint(0,8-1)] = random.randint(4096,8191+1) | random.randint(4096,8191+1) | random.randint(4096,8191+1)| random.randint(4096,8191+1)
-        self.generation += 1
+        feature = 0
+        for i in(0, self.feature_density):
+            feature |= random.choice(self.piecesl)
+        self.features[random.randint(0,self.nr_features-1)][random.randint(0,8-1)][random.randint(0,8-1)] = feature
+         
+        self.generation = ai.generation +1
+        #print self.generation
+        #print ai.generation
         self.memory.set_lr(ai.memory.get_lr_punish(), ai.memory.get_lr_reward())
         self.memory.mutate()
-
+        self.feature_density = ai.feature_density
+        self.feature_density = max(self.feature_density + random.randint(-1,1), 0)
+        #print "MUTATION : "
+        #print self.generation
+       
     cpdef print_len_memory(self):
         print "print len memory: "        
         self.memory.print_len_memory()
@@ -121,8 +138,13 @@ cdef class AI:
         
     cpdef clear_nr_of_wins(self):
         self.nr_wins = 0
+        self.nr_losses = 0
     
     cpdef print_mem_att(self):
         print "memory attributes : "
         self.print_len_memory()
-        self.memory.print_att()            
+        self.memory.print_att()
+    cpdef print_AI_att(self):
+        print "mem att :"
+        print "density : "
+        print self.feature_density            

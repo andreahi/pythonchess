@@ -88,10 +88,14 @@ def test():
             aiw[0].print_mem_att()
             aiw[1].print_mem_att()
             aiw[0].print_generation()
-            aiw[1].print_generation() 
-            if aiw[0].get_nr_of_wins() > aiw[1].get_nr_of_wins():
+            aiw[1].print_generation()
+            aiw[0].print_AI_att()
+            aiw[1].print_AI_att()
+            if aiw[0].get_score() > aiw[1].get_score():
+                print "0 WON"
                 aiw[1].mutate(aiw[0])
             else:
+                print "1 WON"
                 aiw[0].mutate(aiw[1])
             aiw[0].clear_nr_of_wins()
             aiw[1].clear_nr_of_wins()
