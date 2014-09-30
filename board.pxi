@@ -9,10 +9,10 @@ cdef class Board:
     cdef coord_t prev_from
     cdef coord_t prev_to
     cdef piece_t backup_p
-    
+    cdef int changed
     def __init__(self, fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
         cdef np.ndarray[np.uint16_t, ndim=2, mode="c"] board = np.zeros((8,8), dtype=np.uint16)
-
+        self.changed = 0
         board.fill(P_EMPTY)
         self.npboard = board
 
@@ -38,8 +38,12 @@ cdef class Board:
     cpdef multiply(self, np.ndarray[np.uint16_t, ndim=2] f):
         #print f
         #print self.npboard
-        
-        return  np.array_equal(np.bitwise_and(self.npboard,f), self.npboard)
+      #  print "in multiply"
+      #  print f
+      #  print self.npboard
+      #  print np.bitwise_and(self.npboard,f)
+        #return  np.array_equal(np.bitwise_and(self.npboard,f), self.npboard)
+        return  (np.bitwise_and(self.npboard,f) == self.npboard).all()
         
     def _fen_to_chesspiece(self, c):
         to_piece = {
@@ -59,6 +63,7 @@ cdef class Board:
         return to_piece[c]
          
     def reverse_move(self):
+
         reverse_move(self.cboard.board, self.prev_from, self.prev_to, self.backup_p)
 
     def do_move(self, fromy, fromx, toy, tox):
@@ -97,11 +102,13 @@ cdef class Board:
             print self.cboard.moves[i]
 
     def get_all_legal_moves(self):
-        self.cboard.moves_count = 0
-        get_all_legal_moves(&self.cboard)
+        
         return self.get_legal_moves()
     
     def have_lost(self):
+        self.cboard.moves_count = 0
+        with nogil:                          
+            get_all_legal_moves(&self.cboard)
         return self.get_all_legal_moves() == []
 
     def get_legal_moves(self):

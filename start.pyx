@@ -1,7 +1,8 @@
 import numpy as np
 cimport numpy as np
 from libc.stdlib cimport malloc, free
-
+from cython.parallel import parallel, prange
+cimport openmp
 import cppmap
 from cppmap import Memory
 include "board.pxi"
@@ -18,9 +19,53 @@ cdef print_shit(board_t *boardc):
 def get_best_move(Board board):
     pass
     
+    
+cdef play(ai = AI(), nr_games = 1):
+    for i in range(nr_games):
+        board = Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - 0 1") 
+        turn = 0
+                    
+        while True:
+                if board.have_lost():
+                        board.print_board()
+                        print "ai lost"
+                        ai.punish()
+                        break
+                else:
+                          ai.do_best_move(board)
+                    
+                board.swapturn()
+                
+                if board.have_lost():
+                        board.print_board()
+                        print "ai won"
+                        ai.reward()
+                        break
+                else:
+                    lmoves = board.get_all_legal_moves()
+                    r = random.randint(0,len(lmoves)-1)
+                    board.move(lmoves[r])
+                    
+                board.swapturn()
+                turn += 1
+                if turn > 80:
+                    break
+                
+            
+def foo():
+    cdef int i, j, n
+    ai = [AI() for _ in range(10)]
+    board = [Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - 0 1") for _ in range(10)]
 
+
+    with nogil, parallel():
+        for i in prange(5):
+            with gil:
+               play(ai[i])
+                
 def test():
-    board = Board("r6P/p7/8/4k3/8/8/P7/3qqKRr w - 0 1")
+    print np.version.version
+    board = Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - 0 1")
     board.print_board()
     board.calculate_legal_moves(0, 6)
     board.print_legal_moves()
@@ -28,31 +73,72 @@ def test():
   #  board.do_move(1,0,0,0)
     board.print_board()
     
-    aiw = AI()
-    aib = AI()
+    aiw = [AI() for _ in range(2)]
     ite = 0
-    while ite < 100:
+    aiwon = 0
+    randomwon = 0
+    while ite < 10000000:
         turn = 0
-        while turn < 100:
+        board = Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - 0 1")
+        if ite%100 == 0:
+            print "iteration: ", ite
+            aiw[0].print_nr_wins()            
+            aiw[1].print_nr_wins()
+            print "random won : ", randomwon
+            aiw[0].print_mem_att()
+            aiw[1].print_mem_att()
+            aiw[0].print_generation()
+            aiw[1].print_generation() 
+            if aiw[0].get_nr_of_wins() > aiw[1].get_nr_of_wins():
+                aiw[1].mutate(aiw[0])
+            else:
+                aiw[0].mutate(aiw[1])
+            aiw[0].clear_nr_of_wins()
+            aiw[1].clear_nr_of_wins()
+            randomwon = 0
+        board.swapturn()
+
+        while turn < 50:
+            board.swapturn()
+            #AI MOVE
             if board.have_lost():
+                randomwon += 1
+                board.print_board()
                 print "aiw lost"
-                aiw.punish()
-                aib.reward()
+                print turn
+                aiw[ite%2].punish()
                 break
+            #print "turn: "
+            #print board.cboard.turn            
+            #board.print_board()
+            #board.print_legal_moves()
+            aiw[ite%2].do_best_move(board)
             
-            aiw.do_best_move(board)
+            
+            
+            board.swapturn()
+            #RANDOM MOVE
             if board.have_lost():
-                print "aib lost"
-                aib.punish()
-                aiw.reward()            
+                aiwon += 1
+                print board.get_all_legal_moves()
+                board.print_board()
+                aiw[(ite)%2].reward()
+                print "--------------------------------- AI WON ----------------------"           
                 break    
-            aib.do_best_move(board)
+                                   
+            lmoves = board.get_all_legal_moves()
+            r = random.randint(0,len(lmoves)-1)
+            #print "random move: ", r
+            board.move(lmoves[r])
+            
+            
             turn += 1
-        if turn == 100:
-            print "punish both"
-            aib.punish()
-            aiw.punish()
-        
+        if turn == 50:
+            #print "punish both"
+            #aiw[ite%2].mutate(aiw[ite%2])            
+            aiw[ite%2].punish()
+            #print "memory_size: ", aiw[ite%2].print_len_memory()
+        ite += 1
     # memory.shits(nr_shits, m.data)  
 #    board.calculate_legal_moves(0,7)
 #    print board.get_legal_moves()    
